@@ -4,7 +4,7 @@
 
 // Configuration
 var BASE_DIR = '/mnt/sda1';
-var CONFIG_FILE = BASE_DIR + '/cores/config/gambatte.opt';
+var CONFIG_FILE = BASE_DIR + '/configs/Gambatte/Gambatte.opt';
 
 // Colors - Clean blue theme
 var COLORS = {

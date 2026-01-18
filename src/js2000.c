@@ -98,23 +98,9 @@ bool retro_load_game(const struct retro_game_info *info) {
         xlog("retro_load_game: info->path is NULL\n");
         return false;
     }
-    // Transform path from /mnt/sda1/ROMS/js/hello to /mnt/sda1/ROMS/js;hello.gba
-    char fixed_path[512];
-    strncpy(fixed_path, info->path, sizeof(fixed_path)-5); // leave space for .gba and null
-    fixed_path[sizeof(fixed_path)-5] = '\0';
-    char *last_slash = strrchr(fixed_path, '/');
-    if (last_slash) {
-        *last_slash = ';';
-        strncat(fixed_path, ".gba", sizeof(fixed_path)-strlen(fixed_path)-1);
-        xlog("retro_load_game: transformed path to %s\n", fixed_path);
-    } else {
-        xlog("retro_load_game: could not find '/' in path, using original\n");
-        strncpy(fixed_path, info->path, sizeof(fixed_path)-1);
-        fixed_path[sizeof(fixed_path)-1] = '\0';
-    }
-    FILE *f = fopen(fixed_path, "rb");
+    FILE *f = fopen(info->path, "rb");
     if (!f) {
-        xlog("retro_load_game: failed to open file %s\n", fixed_path);
+        xlog("retro_load_game: failed to open file %s\n", info->path);
         return false;
     }
     fseek(f, 0, SEEK_END);
