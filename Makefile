@@ -11,12 +11,12 @@ LDFLAGS :=
 
 # Add path to libretro.h, dirent.h, and debug.h
 ifeq ($(UNIFIED),1)
-DIRENT_DEBUG_PATH := ../../src/
+DIRENT_DEBUG_PATH := ../../../src/
 else
-DIRENT_DEBUG_PATH := ../../
+DIRENT_DEBUG_PATH := ../../../
 endif
 
-INCFLAGS := -I../../libs/libretro-common/include -I./duktape -I$(DIRENT_DEBUG_PATH)
+INCFLAGS := -I../../../libs/libretro-common/include -I./duktape -I$(DIRENT_DEBUG_PATH)
 CFLAGS += $(INCFLAGS)
 
 OBJECTS := $(addprefix $(BUILD_DIR)/,$(notdir $(SOURCES_C:.c=.o)))
