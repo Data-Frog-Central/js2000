@@ -118,17 +118,8 @@ static void print_screen_add_line(const char *msg) {
     print_screen_line_count++;
 }
 
-// Helper: clear framebuffer to a given color
-static void clear_screen_c(uint32_t color) {
-    for (int y = 0; y < SCREEN_HEIGHT; ++y) {
-        for (int x = 0; x < SCREEN_WIDTH; ++x) {
-            js2000_fb[y * SCREEN_WIDTH + x] = color;
-        }
-    }
-}
-
 static void print_screen_render(void) {
-    clear_screen_c(0xFF000000); // Black background
+    screen_draw_fill_rect(js2000_fb, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0xFF000000); // Black background
     int line_height = 9; // 8px font + 1px spacing
     int max_visible_lines = SCREEN_HEIGHT / line_height;
     int first = 0;

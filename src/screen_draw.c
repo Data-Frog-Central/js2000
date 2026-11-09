@@ -50,36 +50,28 @@ void screen_draw_text_5x8(uint32_t *fb, int fb_width, int fb_height, int x, int 
 
 // Draw a filled rectangle
 void screen_draw_fill_rect(uint32_t *fb, int fb_width, int fb_height, int x, int y, int w, int h, uint32_t color) {
+    if (x >= fb_width || y >= fb_height || x + w <= 0 || y + h <= 0) return; // Off-screen checks
+    
+    if (x < 0) { w += x; x = 0; } // Clip left boundary
+    if (y < 0) { h += y; y = 0; } // Clip top boundary
+    if (x + w > fb_width) w = fb_width - x; // Clip right boundary
+    if (y + h > fb_height) h = fb_height - y; // Clip bottom boundary
+    if (w <= 0 || h <= 0) return; // Safety check after clipping
+    
     int area = w * h;
-    if (!accel_funcs.hcge_fb_fill_rect || area < 512) { // Maybe figured out a better way to guess
+    uint32_t final_color = color | 0xFF000000;
+
+    if (!accel_funcs.hcge_fb_fill_rect || area < 512) { // Maybe figure out a better way to guess
         for (int py = y; py < y + h; ++py) {
-            if (py < 0 || py >= fb_height) continue;
-            for (int px = x; px < x + w; ++px) {
-                if (px < 0 || px >= fb_width) continue;
-                fb[py * fb_width + px] = color | 0xFF000000;
+            uint32_t *row = &fb[py * fb_width + x];
+            for (int px = 0; px < w; ++px) {
+                row[px] = final_color;
             }
         }
         return;
     }
+
     if (accel_funcs.hcge_fb_fill_rect) {
-        if (x >= fb_width || y >= fb_height || x + w <= 0 || y + h <= 0) return; // Off-screen checks
-
-        // Clip left boundary (negative x)
-        if (x < 0) {
-            w += x;
-            x = 0;
-        }
-
-        // Clip top boundary (negative y)
-        if (y < 0) {
-            h += y;
-            y = 0;
-        }
-
-        if (x + w > fb_width) w = fb_width - x; // Clip right boundary
-        if (y + h > fb_height) h = fb_height - y; // Clip bottom boundary
-        if (w <= 0 || h <= 0) return; // Safety check after clipping
-
         FrameInfo fill_frame = {
             .frame = fb,
             .full_width = fb_width,
@@ -91,31 +83,36 @@ void screen_draw_fill_rect(uint32_t *fb, int fb_width, int fb_height, int x, int
             .y = y,
             .rgb32 = true
         };
-        accel_funcs.hcge_fb_fill_rect(fill_frame, color);
+        accel_funcs.hcge_fb_fill_rect(fill_frame, final_color);
         return;
     }
 }
 
 // Draw a rectangle outline
 void screen_draw_rect(uint32_t *fb, int fb_width, int fb_height, int x, int y, int w, int h, uint32_t color) {
-    for (int i = 0; i < w; ++i) {
-        int px = x + i;
-        if (px >= 0 && px < fb_width) {
-            if (y >= 0 && y < fb_height) fb[y * fb_width + px] = color | 0xFF000000;
-            if ((y + h - 1) >= 0 && (y + h - 1) < fb_height) fb[(y + h - 1) * fb_width + px] = color | 0xFF000000;
-        }
-    }
-    for (int i = 0; i < h; ++i) {
-        int py = y + i;
-        if (py >= 0 && py < fb_height) {
-            if (x >= 0 && x < fb_width) fb[py * fb_width + x] = color | 0xFF000000;
-            if ((x + w - 1) >= 0 && (x + w - 1) < fb_width) fb[py * fb_width + (x + w - 1)] = color | 0xFF000000;
-        }
-    }
+    if (w <= 0 || h <= 0) return;
+    screen_draw_fill_rect(fb, fb_width, fb_height, x, y, w, 1, color); // Top edge (width x 1)
+    screen_draw_fill_rect(fb, fb_width, fb_height, x, y + h - 1, w, 1, color); // Bottom edge (width x 1)
+    screen_draw_fill_rect(fb, fb_width, fb_height, x, y, 1, h, color); // Left edge (1 x height)
+    screen_draw_fill_rect(fb, fb_width, fb_height, x + w - 1, y, 1, h, color); // Right edge (1 x height)
 }
 
-// Draw a line (Bresenham's algorithm)
 void screen_draw_line(uint32_t *fb, int fb_width, int fb_height, int x0, int y0, int x1, int y1, uint32_t color) {
+    if (y0 == y1) { // Check if the line is strictly horizontal
+        int x = (x0 < x1) ? x0 : x1;
+        int w = abs(x1 - x0) + 1;
+        screen_draw_fill_rect(fb, fb_width, fb_height, x, y0, w, 1, color);
+        return;
+    }
+
+    if (x0 == x1) { // Check if the line is strictly vertical
+        int y = (y0 < y1) ? y0 : y1;
+        int h = abs(y1 - y0) + 1;
+        screen_draw_fill_rect(fb, fb_width, fb_height, x0, y, 1, h, color);
+        return;
+    }
+
+    // Draw a line (Bresenham's algorithm)
     int dx = abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
     int dy = -abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
     int err = dx + dy, e2;
