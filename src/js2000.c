@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <libretro.h>
+#include <gateway.h>
 
 #include "duktape.h"
 #include "js2000_bindings.h"
@@ -22,6 +23,8 @@ static retro_input_poll_t input_poll_cb;
 retro_input_state_t input_state_cb;
 static retro_audio_sample_t audio_cb;
 static retro_audio_sample_batch_t audio_batch_cb;
+
+struct retro_private_accel_functions accel_funcs = {0};
 
 void retro_set_environment(retro_environment_t cb) {
     environ_cb = cb;
@@ -153,6 +156,9 @@ bool retro_load_game(const struct retro_game_info *info) {
     duk_pop_2(ctx); // pop function and stash
     js2000_script_finished = has_mainloop ? 0 : 1;
     free(buf);
+
+    environ_cb(RETRO_ENVIRONMENT_GET_HCGE_ACCEL_FUNCTIONS, &accel_funcs);
+
     return true;
 }
 

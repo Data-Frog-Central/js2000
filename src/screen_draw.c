@@ -1,7 +1,9 @@
-#include "screen_draw.h"
 #include <string.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <gateway.h>
+
+#include "screen_draw.h"
 #include "font8x8.h"
 #include "font5x8.h"
 
@@ -48,12 +50,49 @@ void screen_draw_text_5x8(uint32_t *fb, int fb_width, int fb_height, int x, int 
 
 // Draw a filled rectangle
 void screen_draw_fill_rect(uint32_t *fb, int fb_width, int fb_height, int x, int y, int w, int h, uint32_t color) {
-    for (int py = y; py < y + h; ++py) {
-        if (py < 0 || py >= fb_height) continue;
-        for (int px = x; px < x + w; ++px) {
-            if (px < 0 || px >= fb_width) continue;
-            fb[py * fb_width + px] = color | 0xFF000000;
+    int area = w * h;
+    if (!accel_funcs.hcge_fb_fill_rect || area < 512) { // Maybe figured out a better way to guess
+        for (int py = y; py < y + h; ++py) {
+            if (py < 0 || py >= fb_height) continue;
+            for (int px = x; px < x + w; ++px) {
+                if (px < 0 || px >= fb_width) continue;
+                fb[py * fb_width + px] = color | 0xFF000000;
+            }
         }
+        return;
+    }
+    if (accel_funcs.hcge_fb_fill_rect) {
+        if (x >= fb_width || y >= fb_height || x + w <= 0 || y + h <= 0) return; // Off-screen checks
+
+        // Clip left boundary (negative x)
+        if (x < 0) {
+            w += x;
+            x = 0;
+        }
+
+        // Clip top boundary (negative y)
+        if (y < 0) {
+            h += y;
+            y = 0;
+        }
+
+        if (x + w > fb_width) w = fb_width - x; // Clip right boundary
+        if (y + h > fb_height) h = fb_height - y; // Clip bottom boundary
+        if (w <= 0 || h <= 0) return; // Safety check after clipping
+
+        FrameInfo fill_frame = {
+            .frame = fb,
+            .full_width = fb_width,
+            .full_height = fb_height,
+            .width = w,
+            .height = h,
+            .pitch = fb_width * sizeof(uint32_t),
+            .x = x,
+            .y = y,
+            .rgb32 = true
+        };
+        accel_funcs.hcge_fb_fill_rect(fill_frame, color);
+        return;
     }
 }
 

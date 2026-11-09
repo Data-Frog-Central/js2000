@@ -6,6 +6,8 @@
 extern "C" {
 #endif
 
+extern struct retro_private_accel_functions accel_funcs;
+
 void screen_draw_text_8x8(uint32_t *fb, int fb_width, int fb_height, int x, int y, const char *text, uint32_t color);
 void screen_draw_text_5x8(uint32_t *fb, int fb_width, int fb_height, int x, int y, const char *text, uint32_t color);
 void screen_draw_fill_rect(uint32_t *fb, int fb_width, int fb_height, int x, int y, int w, int h, uint32_t color);
