@@ -1,13 +1,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <libretro.h>
+
 #include "duktape.h"
-#include "debug.h"
 #include "js2000_bindings.h"
 #include "filesystem.h"
 #include "js2000.h"
+#include "logging.h"
 #include "filesystem_bindings.h"
-#include "libretro.h"
 #include "screen_draw_bindings.h"
 
 // Extern framebuffer from js2000.c
@@ -19,7 +20,7 @@ extern retro_input_state_t input_state_cb;
 // C function for console.log and print
 static duk_ret_t duk_console_log(duk_context *ctx) {
     const char *msg = duk_safe_to_string(ctx, 0);
-    xlog("[js] %s\n", msg);
+    js2000_info("[js] %s\n", msg);
     return 0;
 }
 

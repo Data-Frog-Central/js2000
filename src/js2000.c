@@ -1,17 +1,20 @@
 // js2000.c - Libretro core for running JavaScript via Duktape
 #include <stdio.h>
 #include <string.h>
-#include "libretro.h"
+#include <libretro.h>
+
 #include "duktape.h"
-#include "debug.h"
 #include "js2000_bindings.h"
 #include "js2000.h"
+#include "logging.h"
 
 // Framebuffer for text rendering
 uint32_t js2000_fb[SCREEN_WIDTH * SCREEN_HEIGHT];
 
 duk_context *ctx = NULL;
 int js2000_script_finished = 0;
+
+static retro_log_printf_t log_cb = NULL;
 
 static retro_environment_t environ_cb;
 static retro_video_refresh_t video_cb;
@@ -24,7 +27,26 @@ void retro_set_environment(retro_environment_t cb) {
     environ_cb = cb;
 }
 
+void js2000_log_cb(enum retro_log_level level, const char *fmt, ...) {
+    if (!log_cb) return;
+    if (!fmt || *fmt == '\0') return;
+
+    char buffer[500];
+
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(buffer, sizeof(buffer), fmt, args);
+    va_end(args);
+
+    log_cb(level, "[JS2000] %s", buffer);
+}
+
 void retro_init(void) {
+
+    struct retro_log_callback logging;
+    if (environ_cb(RETRO_ENVIRONMENT_GET_LOG_INTERFACE, &logging)) log_cb = logging.log;
+    else log_cb = NULL;
+
     ctx = duk_create_heap_default();
     if (ctx) {
         js2000_register_bindings(ctx);
@@ -80,49 +102,48 @@ void retro_cheat_set(unsigned index, bool enabled, const char *code) {}
 void retro_set_controller_port_device(unsigned port, unsigned device) {}
 
 bool retro_load_game(const struct retro_game_info *info) {
-    xlog("retro_load_game: called\n");
     enum retro_pixel_format fmt = RETRO_PIXEL_FORMAT_XRGB8888;
     if (!environ_cb(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &fmt)) {
-        xlog("retro_load_game: failed to set pixel format\n");
+        js2000_err("retro_load_game: failed to set pixel format\n");
         return false;
     }
     if (!ctx) {
-        xlog("retro_load_game: ctx is NULL\n");
+        js2000_err("retro_load_game: ctx is NULL\n");
         return false;
     }
     if (!info) {
-        xlog("retro_load_game: info is NULL\n");
+        js2000_err("retro_load_game: info is NULL\n");
         return false;
     }
     if (!info->path) {
-        xlog("retro_load_game: info->path is NULL\n");
+        js2000_err("retro_load_game: info->path is NULL\n");
         return false;
     }
     FILE *f = fopen(info->path, "rb");
     if (!f) {
-        xlog("retro_load_game: failed to open file %s\n", info->path);
+        js2000_err("retro_load_game: failed to open file %s\n", info->path);
         return false;
     }
     fseek(f, 0, SEEK_END);
     long len = ftell(f);
     fseek(f, 0, SEEK_SET);
-    xlog("retro_load_game: file size = %ld\n", len);
+    js2000_dbg("retro_load_game: file size = %ld\n", len);
     char *buf = (char*)malloc(len+1);
     if (!buf) {
-        xlog("retro_load_game: malloc failed\n");
+        js2000_err("retro_load_game: malloc failed\n");
         fclose(f);
         return false;
     }
     fread(buf, 1, len, f);
     buf[len] = '\0';
     fclose(f);
-    xlog("retro_load_game: file read, evaluating JS\n");
+    js2000_dbg("retro_load_game: file read, evaluating JS\n");
     if (duk_peval_string(ctx, buf) != 0) {
-        xlog("Duktape error: %s\n", duk_safe_to_string(ctx, -1));
+        js2000_err("Duktape error: %s\n", duk_safe_to_string(ctx, -1));
         free(buf);
         return false;
     }
-    xlog("retro_load_game: JS evaluated successfully\n");
+    js2000_info("retro_load_game: JS evaluated successfully\n");
     // Check if a main loop is registered
     duk_push_global_stash(ctx);
     int has_mainloop = 0;
@@ -154,7 +175,7 @@ void retro_run(void) {
             if (duk_is_function(ctx, -1)) {
                 if (duk_pcall(ctx, 0) != 0) {
                     // Log error, mark script as finished
-                    xlog("mainLoop error: %s\n", duk_safe_to_string(ctx, -1));
+                    js2000_err("mainLoop error: %s\n", duk_safe_to_string(ctx, -1));
                     js2000_script_finished = 1;
                 }
             }

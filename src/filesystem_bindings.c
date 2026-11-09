@@ -1,7 +1,6 @@
 #include "filesystem_bindings.h"
 #include "filesystem.h"
 #include "duktape.h"
-#include "debug.h"
 #include "js2000.h"
 
 // C function to append text to a file, exposed to JS
